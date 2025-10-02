@@ -1,0 +1,105 @@
+---
+title: "Tugas MPDW Pertemuan 5"
+author: "Naufal Azizan Rafiansyah"
+date: "2025-08-29"
+output: html_document
+---
+
+# Library
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(forecast)
+library(MASS)
+```
+
+# Data
+
+```{r}
+df <- read_xlsx("D://MPDW//Pertemuan 1//Data MPDW Naufal.xlsx")
+df
+```
+
+# Split Data
+
+```{r}
+n <- nrow(df)
+
+n_train <- floor(0.8 * n)
+
+training <- df[1:n_train, ]
+testing  <- df[(n_train+1):n, ]
+
+train.ts <- ts(training$CO2)
+test.ts  <- ts(testing$CO2)
+```
+
+# Plot Time Series
+
+```{r}
+plot_train <- train.ts |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+plot_train
+```
+
+Plot deret waktu data latih di atas menunjukkan bahwa data tidak stasioner dalam rataan. Akan tetapi, data tampak stasioner dalam ragam karena data berfluktuasi pada rentang yang relatif sama sepanjang waktu,
+
+```{r}
+lattice::densityplot(as.vector(train.ts))
+```
+
+
+# Plot ACF
+
+```{r}
+acf(train.ts)
+```
+
+Berdasarkan plot ACF di atas, terlihat bahwa nilai ACF menurun secara perlahan dan tetap berada di atas batas signifikan untuk beberapa lag pertama. Hal ini menunjukkan bahwa data tidak stasioner dalam rataan.
+
+# Uji ADF
+
+```{r}
+tseries::adf.test(train.ts)
+```
+
+Berdasarkan hasil uji ADF di atas, didapatkan nilai p-value = 0.01 yang lebih kecil dari taraf nyata 5%. Artinya, tidak cukup bukti untuk menyatakan data tidak stasioner dalam rataan.
+
+Meskipun plot ACF menunjukkan data tidak stasioner dalam rataan, hasil uji ADF lebih akurat dalam menguji apakah data tersebut stasioner atau tidak. Sehingga, kita anggap data ini stasioner dalam rataan.
+
+# Plot Box-Cox
+
+```{r}
+index <- seq(1:144)
+
+# Box-Cox
+bc <- boxcox(
+  train.ts ~ index,
+  lambda = seq(-10, 10, by = 0.01)
+)
+```
+
+```{r}
+lambda <- bc$x[which.max(bc$y)]
+lambda
+```
+
+```{r}
+# Selang kepercayaan 95% untuk lambda
+ci_lambda <- bc$x[bc$y > max(bc$y) - 0.5 * qchisq(0.95, 1)]
+
+# Batas bawah dan batas atas
+ci_lower <- min(ci_lambda)
+ci_upper <- max(ci_lambda)
+
+c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
+```
+
+Gambar di atas menunjukkan nilai λ optimum (rounded value) sebesar
+**-0,02** dan selang kepercayaan 95% nilai memiliki batas bawah **-8,41**
+dan batas atas **8,38**. Selang tersebut memuat nilai satu sehingga
+dapat dikatakan bahwa data **stasioner dalam ragam**.
